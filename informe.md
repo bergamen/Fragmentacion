@@ -1,5 +1,23 @@
 # Fragmentación
 
+integrante:
+- Benjamín Álvarez
+- Vicente Garrido
+
+Repositorio: https://github.com/bergamen/Fragmentacion.git
+
+## Estructura del Header IP
+
+Para soportar la fragmentación y el re-ensamblado en `parse_packet` y `create_packet`, se extendió el header IP a un tamaño fijo de **16 bytes** con la siguiente distribución de campos:
+
+- **Dirección IP (4 bytes):** 1 byte por cada octeto de la dirección IPv4 de destino.
+- **Puerto (2 bytes):** Entero sin signo que indica el puerto de destino.
+- **TTL (1 byte):** Tiempo de vida del paquete o fragmento.
+- **ID (2 bytes):** Identificador numérico compartido por todos los fragmentos pertenecientes a un mismo datagrama IP.
+- **Offset (2 bytes):** Posición de inicio (en bytes) de los datos del fragmento respecto al mensaje del datagrama original.
+- **Tamaño (4 bytes):** Largo en bytes del mensaje contenido en el paquete o fragmento actual (sin contar los 16 bytes del header).
+- **FLAG (1 byte):** Toma el valor `1` si quedan más fragmentos después del actual y `0` si es el último fragmento o un paquete sin fragmentar.
+
 ## Implementación de fragmentación
 
 Para esto, primero revisa si el tamaño de los headers con el mensaje sean igual o menores al MTU, con esto es capaz de ver si es posible de mandarlo completo, sino, toma la máxima porsión del mensaje y la separa. Con esta porsión se setea que su flag es 1, mientras que la otra porsión se setea un offset sumando el tamaño de la primera porsion a su offset, con esto nos aseguramos que si es un mensaje ya fragmentado, pueda mantener su posicion. Luego la primera parte se pone en un arreglo unico y se concatena con el resultado de aplicarle la funcion de fragmentacion a la segunda parte
@@ -13,5 +31,7 @@ Se setea una base de Paquete con la informacion que no cambia del mensaje origin
 Para el ensamblado, se tomo la desicion de que se guardara tambien el tamaño del mensaje asociado al id, con el fin de que solo cuando sepa que llego el mensaje completo intentara re-emsamblarlo. Esto debido a que al hacer pruebas, algunos paquetes se perdian, de modo que se considero que al tratar armar los paquetes de nuevo, el timpo usado para este pudo haber hecho que ignorara los mensajes en ese tiempo. Esto fue una suposicion, pero funciono al aplicarlo.
 
 ## Pruebas
+
+En primer lugar, se comprobó el manejo del `TTL` y la alternancia de rutas mediante *Round-Robin* enviando un paquete pequeño desde `R1` hacia `R5` con `mensaje="hola!"` (`Tamaño=5`, `TTL=10`, `ID=347`, `Offset=0`, `FLAG=0`). Dado que el tamaño total del datagrama es de 21 bytes, el cual es menor que el MTU mínimo de la red (50 bytes), el paquete recorrió los enlaces sin sufrir fragmentación, disminuyendo su `TTL` en 1 por cada salto y alternando en `R2` entre los caminos por `R3` y `R4` al enviarlo repetidas veces, llegando e imprimiéndose `"hola!"` directamente en `R5`.
 
 A la hora de realizar las pruebas, se observa que los paquetes son capaces de ser fragmentados correctamente, incluso fragmentos logran ser fragmentados, y que al mandarlos desde otros router cambia el tamaño de estos pero no su comportamiendo, haciendo que al llegar todos a sus destino puedan ser emsamblados correctamente. Aun asi se observo que aun mandando los paquetes desde un router "Cercano" al del destino, el mensaje no lograba llegar completo por el descarte del ttl, con lo que se puede ver como al fragmentar los mensajes, al ser muchos fragmentos, prueban diferentes rutas debido al Round Robin, haciendo que un fragmento tome un camino mas largo al ttl inicial y haciendo que el mensaje se descarte pro completo.
