@@ -76,7 +76,7 @@ def check_routes(routes_file_name: str, destination_address: tuple[str,int]) -> 
                             ip_ruta = count
                             prio = n
                             mtu = int(args[5])
-                        elif n == prio:
+                        elif n == prio and rr_ips[count] < rr_ips[ip_ruta]:
                             re_address = (args[3], int(args[4]))
                             ip_ruta = count
                             prio = n
@@ -102,11 +102,11 @@ def fragment_IP_packet(IP_packet,MTU):
 
         new_segment["flag"] = 1
         new_segment["message"] = new_message
-        #new_segment["tamanno"] = len(new_message)
+        new_segment["tamanno"] = len(new_message)
 
         next_segment["offset"] += len(new_message)
         next_segment["message"] = next_message
-        #next_segment["tamanno"] = len(next_message)
+        next_segment["tamanno"] = len(next_message)
 
         return [new_segment] + fragment_IP_packet(next_segment,MTU)
     else:
@@ -117,10 +117,10 @@ def reassemble_IP_packet(fragment_list):
     final_segment["offset"] = 0
     final_segment["flag"] = 1
     final_segment["message"] = b''
-    #final_segment["tamanno"] = 0
+    final_segment["tamanno"] = 0
     count = 0
     maxx = len(fragment_list)
-    while count < maxx:
+    while count < maxx and final_segment["flag"] != 0:
 
         print(final_segment)
 
@@ -128,8 +128,7 @@ def reassemble_IP_packet(fragment_list):
 
             final_segment["message"] += fragment_list[count]["message"]
             final_segment["flag"] = fragment_list[count]["flag"]
-            #final_segment["offset"] += len(fragment_list[count]["message"])
-            #final_segment["tamanno"] += fragment_list[count]["tamanno"]
+            final_segment["tamanno"] += fragment_list[count]["tamanno"]
             count = 0
             continue
 
@@ -144,7 +143,6 @@ def reassemble_IP_packet(fragment_list):
 if __name__ == "__main__":
 
     reassemple_id = {}
-    reassembled_tam = {}
 
     router_IP = sys.argv[1]
     router_puerto = int(sys.argv[2])
@@ -167,18 +165,14 @@ if __name__ == "__main__":
 
             if segment["id"] in reassemple_id:
                 reassemple_id[segment["id"]].append(segment)
-                reassembled_tam[segment["id"]] += len(segment["message"])
             else:
                 reassemple_id[segment["id"]] = [segment]
-                reassembled_tam[segment["id"]] = len(segment["message"])
 
-            if reassembled_tam[segment["id"]] >= segment["tamanno"]: 
-                reassembled = reassemble_IP_packet(reassemple_id[segment["id"]])
-            else:
-                reassembled = None
+            reassembled = reassemble_IP_packet(reassemple_id[segment["id"]])
 
             if reassembled != None:
                 print(reassembled["message"].decode())
+                del reassemple_id[segment["id"]]
     
         else:
             next_address,next_mtu = check_routes(router_rutas,segment["address"])
